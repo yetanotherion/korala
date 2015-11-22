@@ -1,33 +1,13 @@
 open Music
 
 
-type parts = {
-    guitar: string_note measures;
-    guitar_two: string_note measures;
-  }
-
-let create_part guitar guitar_two = {guitar; guitar_two}
-
-let append_parts a b =
-  {
-    guitar = a.guitar @ b.guitar;
-    guitar_two = b.guitar_two @ b.guitar_two;
-  }
-
-let flatten l =
-  match l with
-  | [] -> {guitar = [];
-           guitar_two = [];}
-  | hd :: tl ->
-     List.fold_left (fun accum x ->
-                     append_parts accum x) hd tl
-
 module B = struct
     let lowest_string = 1
     let second_string = lowest_string + 1
     let third_string = second_string + 1
     let main_start = 4
     let bis_start = 7
+    let silence = create_measure [create_rest `Whole]
 
     module F = struct
       let first = create_measure
@@ -91,9 +71,10 @@ module B = struct
                                        create_string_sixteenth third_string (bis_start + 2);
                                        create_string_quarter second_string (bis_start + 3);
                                        create_string_quarter second_string (bis_start + 2)]
-
       let t = [first; second; third; fourth]
       let t_bis = [first_bis; second_bis; third_bis; fourth_bis]
+      let t_silence = [silence; silence; silence; silence]
+
       end
     module S = struct
       let first = create_measure [create_string_sixteenth third_string main_start;
@@ -160,29 +141,82 @@ module B = struct
 
       let t = [first; second; third; first; second; last]
       let t_bis = [first_bis; second_bis; third_bis; first_bis; second_bis; last_bis]
+      let t_silence = [silence; silence; silence; silence; silence; silence]
       end
 
     let guitar_measures = F.t @ S.t
     let guitar_bis_measures = F.t_bis @ S.t_bis
-    let t = create_part guitar_measures guitar_bis_measures
   end
 
-module Example = struct
 
+module OneVoice = struct
+    type t = {
+        guitar: string_note measures;
+      }
+
+    let create_part guitar = {guitar}
+  end
+
+module TwoVoices = struct
+    type t = {
+        guitar: string_note measures;
+        guitar_bis: string_note measures;
+      }
+
+    let create_part guitar guitar_bis = {guitar; guitar_bis}
+  end
+
+
+module First = struct
+    open OneVoice
     let song_to_mxml song =
       let guitar = Music_xml.create_instrument 1 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar)) in
-      let guitar2 = Music_xml.create_instrument 2 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar_two)) in
-      let xml = Music_xml.create "Iduzki denean" "gaur" 80 [guitar; guitar2] in
+      let xml = Music_xml.create "Iduzki denean (lehen abotsa)" "gaur" 80 [guitar] in
       Music_xml.to_string xml
 
     let output_example () =
-      let song = flatten [B.t] in
+      let song = OneVoice.create_part B.guitar_measures in
+      song_to_mxml song
+
+  end
+
+module Second = struct
+    open OneVoice
+    let song_to_mxml song =
+      let guitar = Music_xml.create_instrument 1 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar)) in
+      let xml = Music_xml.create "Iduzki denean (bigarren abotsa)" "gaur" 80 [guitar] in
+      Music_xml.to_string xml
+
+    let output_example () =
+      let song = create_part B.guitar_bis_measures in
+      song_to_mxml song
+
+  end
+
+module All = struct
+    open TwoVoices
+    let song_to_mxml song =
+      let guitar = Music_xml.create_instrument 1 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar)) in
+      let guitar_bis = Music_xml.create_instrument 2 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar_bis)) in
+      let xml = Music_xml.create "Iduzki denean" "gaur" 80 [guitar; guitar_bis] in
+      Music_xml.to_string xml
+
+    let output_example () =
+      let song = create_part B.guitar_measures B.guitar_bis_measures in
       song_to_mxml song
 
   end
 
 let () =
   let () = Printexc.record_backtrace true in
+  let fd = open_out "./iduzki_denean_lehen_abotsa.xml" in
+  let () = Printf.fprintf fd "%s" (First.output_example ()) in
+  let () = close_out fd in
+
+  let fd = open_out "./iduzki_denean_bigarren_abotsa.xml" in
+  let () = Printf.fprintf fd "%s" (Second.output_example ()) in
+  let () = close_out fd in
+
   let fd = open_out "./iduzki_denean.xml" in
-  let () = Printf.fprintf fd "%s" (Example.output_example ()) in
+  let () = Printf.fprintf fd "%s" (All.output_example ()) in
   close_out fd
