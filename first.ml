@@ -3,18 +3,21 @@ open Music
 
 type parts = {
     guitar: string_note measures;
+    guitar_two: string_note measures;
   }
 
-let create_part guitar = {guitar}
+let create_part guitar guitar_two = {guitar; guitar_two}
 
 let append_parts a b =
   {
     guitar = a.guitar @ b.guitar;
+    guitar_two = b.guitar_two @ b.guitar_two;
   }
 
 let flatten l =
   match l with
-  | [] -> {guitar = []}
+  | [] -> {guitar = [];
+           guitar_two = [];}
   | hd :: tl ->
      List.fold_left (fun accum x ->
                      append_parts accum x) hd tl
@@ -88,14 +91,17 @@ module B = struct
 
       let t = [first; second; third; first; second; last]
       end
-    let t = create_part (F.t @ S.t)
+    let guitar_measures = F.t @ S.t
+    let guitar_two_measures = transpose_measures 4 guitar_measures
+    let t = create_part guitar_measures guitar_two_measures
   end
 
 module Example = struct
 
     let song_to_mxml song =
       let guitar = Music_xml.create_instrument 1 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar)) in
-      let xml = Music_xml.create "Iduzki denean" "gaur" 80 [guitar] in
+      let guitar2 = Music_xml.create_instrument 2 Music_xml.MidiInstruments.std_guitar (`String (std_guitar, song.guitar_two)) in
+      let xml = Music_xml.create "Iduzki denean" "gaur" 80 [guitar; guitar2] in
       Music_xml.to_string xml
 
     let output_example () =
